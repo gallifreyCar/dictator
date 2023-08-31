@@ -1,0 +1,13 @@
+# （需要修改）平台运行的namespace
+namespace: cloud2
+images:
+  - name: dictator
+    # （需要修改）pcs-operator的镜像版本
+    # newName:newTag 构成完整的镜像
+    newName: harbor:5000/wecloud/dictator
+    newTag: v0.0.1
+resources:
+  - bases/manifests.yaml
+  - bases/rbac.yaml
+  - bases/service.yaml
+  - bases/manager.yaml
