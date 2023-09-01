@@ -19,7 +19,9 @@ package webhook
 import (
 	"context"
 	"github.com/go-logr/logr"
+	"gitlab.wellcloud.cc/cloud/dictator/registry"
 	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -52,16 +54,77 @@ func SetupDeploymentWebhookWithManager(mgr ctrl.Manager) error {
 
 func (w *DeploymentWebhook) Default(ctx context.Context, obj runtime.Object) error {
 	w.logger.Info("收到mutate webhook请求")
+	gVersion, deps, err := registry.GetVersionAndDependence(registry.KRTDeployment, obj.(*unstructured.Unstructured))
+	if err != nil {
+		return err
+	}
+	//设置Annotation
+	registry.SetObjVersion(obj.(*unstructured.Unstructured), gVersion, deps)
+	obj.(*appsv1.Deployment).Annotations["dictator.wellcloud.cc/annotation"] = "dictator"
+
 	return nil
 }
 
 func (w *DeploymentWebhook) ValidateCreate(ctx context.Context, obj runtime.Object) error {
 	w.logger.Info("收到validate webhook创建请求")
+	//获取所有的资源
+	objs := unstructured.Unstructured{}
+	opts := client.ListOptions{
+		Namespace: "wellcloud",
+	}
+	err := w.client.List(ctx, &objs, &opts)
+
+	var objsMap = make(map[string]*unstructured.Unstructured)
+	//拼接资源map
+	for k, v := range objs.Object {
+		objsMap[k] = v.(*unstructured.Unstructured)
+	}
+
+	//获取版本和依赖
+	gVersion, deps, err := registry.GetVersionAndDependence(registry.KRTDeployment, obj.(*unstructured.Unstructured))
+	if err != nil {
+		return err
+	}
+
+	//检测依赖
+	if err = registry.CheckForwardDependence(objsMap, deps); err != nil {
+		return err
+	}
+	if err = registry.CheckReverseDependence(objsMap, obj.GetObjectKind().GroupVersionKind().Kind, gVersion); err != nil {
+		return err
+	}
 	return nil
 }
 
 func (w *DeploymentWebhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
 	w.logger.Info("收到validate webhook更新请求")
+	//获取所有的资源
+	objs := unstructured.Unstructured{}
+	opts := client.ListOptions{
+		Namespace: "wellcloud",
+	}
+	err := w.client.List(ctx, &objs, &opts)
+
+	var objsMap = make(map[string]*unstructured.Unstructured)
+	//拼接资源map
+	for k, v := range objs.Object {
+		objsMap[k] = v.(*unstructured.Unstructured)
+	}
+
+	//获取版本和依赖
+	gVersion, deps, err := registry.GetVersionAndDependence(registry.KRTDeployment, oldObj.(*unstructured.Unstructured))
+	if err != nil {
+		return err
+	}
+
+	//检测依赖
+	if err = registry.CheckForwardDependence(objsMap, deps); err != nil {
+		return err
+	}
+	if err = registry.CheckReverseDependence(objsMap, oldObj.GetObjectKind().GroupVersionKind().Kind, gVersion); err != nil {
+		return err
+	}
+	return nil
 	return nil
 }
 
