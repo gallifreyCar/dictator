@@ -52,6 +52,12 @@ func SetupDeploymentWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
+const (
+	K8sLabelName            = "wkm.welljoint.com/name"        // 服务名称
+	K8sLabelVersion         = "wkm.welljoint.com/version"     // 服务版本
+	K8sAnnotationDependence = ".wkm.welljoint.com/dependence" // 依赖约束
+)
+
 func (w *DeploymentWebhook) Default(ctx context.Context, obj runtime.Object) error {
 	w.logger.Info("收到mutate webhook请求")
 	gVersion, deps, err := registry.GetVersionAndDependence(registry.KRTDeployment, obj.(*unstructured.Unstructured))
@@ -60,8 +66,10 @@ func (w *DeploymentWebhook) Default(ctx context.Context, obj runtime.Object) err
 	}
 	//设置Annotation
 	registry.SetObjVersion(obj.(*unstructured.Unstructured), gVersion, deps)
-	obj.(*appsv1.Deployment).Annotations["dictator.wellcloud.cc/annotation"] = "dictator"
 
+	for k, v := range deps {
+		obj.(*appsv1.Deployment).Annotations[k+K8sAnnotationDependence] = v
+	}
 	return nil
 }
 
@@ -70,10 +78,12 @@ func (w *DeploymentWebhook) ValidateCreate(ctx context.Context, obj runtime.Obje
 	//获取所有的资源
 	objs := unstructured.Unstructured{}
 	opts := client.ListOptions{
-		Namespace: "wellcloud",
+		Namespace: "cloud2",
 	}
 	err := w.client.List(ctx, &objs, &opts)
-
+	if err != nil {
+		return err
+	}
 	var objsMap = make(map[string]*unstructured.Unstructured)
 	//拼接资源map
 	for k, v := range objs.Object {
