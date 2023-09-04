@@ -5,7 +5,7 @@ images:
     # （需要修改）pcs-operator的镜像版本
     # newName:newTag 构成完整的镜像
     newName: harbor:5000/wecloud/dictator
-    newTag: v0.0.1
+    newTag: v0.0.2
 resources:
   - bases/manifests.yaml
   - bases/rbac.yaml
