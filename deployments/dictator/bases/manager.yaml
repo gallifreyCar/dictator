@@ -25,6 +25,10 @@ spec:
         - --leader-elect
         image: dictator:latest
         imagePullPolicy: Always
+        volumeMounts:
+          - name: webhook-certs
+            mountPath: /tmp/k8s-webhook-server/serving-certs/tls.crt
+            readOnly: true
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
@@ -52,3 +56,7 @@ spec:
             memory: 64Mi
       serviceAccountName: dictator
       terminationGracePeriodSeconds: 10
+    volumes:
+        - name: webhook-certs
+          secret:
+            secretName: dictator
