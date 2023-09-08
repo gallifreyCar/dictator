@@ -25,6 +25,9 @@ webhooks:
         resources:
           - daemonsets
     sideEffects: None
+    namespaceSelector:
+      matchLabels:
+        pod-admission-webhook-injection: enabled
   - admissionReviewVersions:
       - v1
     clientConfig:
@@ -45,6 +48,9 @@ webhooks:
         resources:
           - deployments
     sideEffects: None
+    namespaceSelector:
+      matchLabels:
+        pod-admission-webhook-injection: enabled
   - admissionReviewVersions:
       - v1
     clientConfig:
@@ -65,6 +71,9 @@ webhooks:
         resources:
           - statefulsets
     sideEffects: None
+    namespaceSelector:
+      matchLabels:
+        pod-admission-webhook-injection: enabled
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
@@ -92,6 +101,9 @@ webhooks:
         resources:
           - daemonsets
     sideEffects: None
+    namespaceSelector:
+      matchLabels:
+        pod-admission-webhook-injection: enabled
   - admissionReviewVersions:
       - v1
     clientConfig:
@@ -112,6 +124,9 @@ webhooks:
         resources:
           - deployments
     sideEffects: None
+    namespaceSelector:
+      matchLabels:
+        pod-admission-webhook-injection: enabled
   - admissionReviewVersions:
       - v1
     clientConfig:
@@ -132,3 +147,7 @@ webhooks:
         resources:
           - statefulsets
     sideEffects: None
+    namespaceSelector:
+      matchLabels:
+        pod-admission-webhook-injection: enabled
+
