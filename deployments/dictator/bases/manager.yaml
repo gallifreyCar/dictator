@@ -32,7 +32,7 @@ spec:
         name: manager
         env:
           - name: registryAddr
-            value: 192.168.40.96
+            value: "192.168.40.96:5000"
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
