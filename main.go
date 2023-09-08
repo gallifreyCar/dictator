@@ -69,7 +69,6 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "d74e7962.welljoint.com",
-		Namespace:              "default",
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
@@ -90,6 +89,14 @@ func main() {
 
 	if err = webhook.SetupDeploymentWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Deployment")
+		os.Exit(1)
+	}
+	if err = webhook.SetupStatefulSetWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "StatefulSet")
+		os.Exit(1)
+	}
+	if err = webhook.SetupDaemonSetWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "DaemonSet")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
