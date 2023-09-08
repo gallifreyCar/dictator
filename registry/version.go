@@ -57,7 +57,7 @@ func getDependenceByPodTemplate(podSpec *corev1.PodTemplateSpec) (map[string]str
 			continue
 		}
 
-		dependence, err := GetImageDependenceRaw(c.Image)
+		dependence, err := GetImageDependenceRaw(image)
 		if err != nil {
 			return nil, err
 		}

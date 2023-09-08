@@ -31,7 +31,8 @@ spec:
             readOnly: true
         name: manager
         env:
-          - registryAddr: 192.168.40.96
+          - name: registryAddr
+            value: 192.168.40.96
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
