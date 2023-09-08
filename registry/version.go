@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
 	_ "net/http"
+	"os"
 	"strings"
 )
 
@@ -43,7 +44,15 @@ func getDependenceByPodTemplate(podSpec *corev1.PodTemplateSpec) (map[string]str
 	containers = append(containers, podSpec.Spec.InitContainers...)
 	containers = append(containers, podSpec.Spec.Containers...)
 	for _, c := range containers {
-		i := strings.LastIndexByte(c.Image, ':')
+		image := c.Image
+		// 隐藏镜像仓库地址
+		image = hideImageRegistry(image)
+		// 补全镜像完整地址
+		regAddr := os.Getenv("registryAddr")
+		image = completeImageRegistry(regAddr, image)
+
+		i := strings.LastIndexByte(image, ':')
+
 		if i == -1 {
 			continue
 		}
@@ -174,4 +183,40 @@ func GetVersion(obj runtime.Object) (string, error) {
 
 	return getVersionByPodTemplate(&spec), nil
 
+}
+
+// 隐藏镜像仓库地址
+// image: harbor:5000/wecloud/wmc:1.5.1
+// return: wecloud/wmc:1.5.1
+func hideImageRegistry(image string) string {
+	i := strings.IndexByte(image, '/')
+	if i == -1 {
+		return image
+	}
+	return image[i+1:]
+}
+
+// 补全镜像完整地址
+// address: harbor:5000 part: wecloud/wmc:1.5.1
+// return: harbor:5000/wecloud/wmc:1.5.1
+func completeImageRegistry(address, part string) string {
+	if part == "" {
+		return ""
+	}
+
+	base := part
+	var tag string
+	parts := strings.Split(part, ":")
+	if len(parts) > 1 && !strings.Contains(parts[len(parts)-1], "/") {
+		base = strings.Join(parts[:len(parts)-1], ":")
+		tag = parts[len(parts)-1]
+	}
+
+	repo := base
+	parts = strings.SplitN(base, "/", 2)
+	if len(parts) == 2 && (strings.ContainsRune(parts[0], '.') || strings.ContainsRune(parts[0], ':')) {
+		repo = parts[1]
+	}
+
+	return address + "/" + repo + ":" + tag
 }

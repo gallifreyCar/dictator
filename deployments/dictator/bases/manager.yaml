@@ -30,6 +30,8 @@ spec:
             mountPath: /tmp/k8s-webhook-server/serving-certs/tls.crt
             readOnly: true
         name: manager
+        env:
+          - registryAddr: 192.168.40.96
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
