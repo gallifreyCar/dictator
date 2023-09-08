@@ -140,11 +140,11 @@ func UseValidate(logger logr.Logger, obj runtime.Object, myClient client.Client,
 	}
 
 	//检测依赖
-	if err = registry.CheckForwardDependence(objsMap, deps); err != nil {
+	if err = registry.CheckForwardDependence(objsMap, deps, logger); err != nil {
 		logger.Info("检测正向依赖失败", "err", err)
 		return err
 	}
-	if err = registry.CheckReverseDependence(objsReverseMap, meta.Name, gVersion); err != nil {
+	if err = registry.CheckReverseDependence(objsReverseMap, meta.Name, gVersion, logger); err != nil {
 		logger.Info("检测反向依赖失败", "err", err)
 		return err
 	}

@@ -4,11 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Masterminds/semver/v3"
+	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/klog/v2"
 	_ "net/http"
 	"os"
 	"strings"
@@ -80,8 +80,8 @@ func GetVersionAndDependence(podSpec corev1.PodTemplateSpec) (string, map[string
 	return version, deps, err
 }
 
-func CheckForwardDependence(objs map[string]runtime.Object, deps map[string]string) error {
-	klog.V(4).Infof("正向依赖检查: %v\n", deps)
+func CheckForwardDependence(objs map[string]runtime.Object, deps map[string]string, logger logr.Logger) error {
+	logger.Info("正向依赖检查: %v\n", deps)
 	for svc, constraint := range deps {
 		c, err := semver.NewConstraint(constraint)
 		if err != nil {
@@ -90,13 +90,13 @@ func CheckForwardDependence(objs map[string]runtime.Object, deps map[string]stri
 
 		obj := objs[svc]
 		if obj == nil {
-			klog.V(4).Info("被依赖的服务不存在: %s\n", svc)
+			logger.Info("被依赖的服务不存在: %s\n", svc)
 			continue
 		}
 
 		version, err := GetVersion(obj)
 		if version == "" {
-			klog.V(4).Infof("被依赖的服务版本为空: %s\n", svc)
+			logger.Info("被依赖的服务版本为空: %s\n", svc)
 			continue
 		}
 
@@ -111,8 +111,8 @@ func CheckForwardDependence(objs map[string]runtime.Object, deps map[string]stri
 	return nil
 }
 
-func CheckReverseDependence(objs map[string]*v12.ObjectMeta, svc string, version string) error {
-	klog.V(4).Infof("反向依赖检查: %s %s\n", svc, version)
+func CheckReverseDependence(objs map[string]*v12.ObjectMeta, svc string, version string, logger logr.Logger) error {
+	logger.Info("反向依赖检查: %s %s\n", svc, version)
 	if version == "" {
 		return nil
 	}
