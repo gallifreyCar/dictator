@@ -10,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 )
 
 func UseDefault(obj runtime.Object, logger logr.Logger) error {
@@ -44,17 +45,19 @@ func UseValidate(logger logr.Logger, obj runtime.Object, myClient client.Client,
 	var statefulsetObjs appsv1.StatefulSetList
 	var daemonsetObjs appsv1.DaemonSetList
 	var meta metav1.ObjectMeta
-	var deps map[string]string
+	var anno map[string]string
+	deps := make(map[string]string)
+
 	switch obj.(type) {
 	case *appsv1.Deployment:
 		meta = obj.(*appsv1.Deployment).ObjectMeta
-		deps = obj.(*appsv1.Deployment).GetAnnotations()
+		anno = obj.(*appsv1.Deployment).GetAnnotations()
 	case *appsv1.StatefulSet:
 		meta = obj.(*appsv1.StatefulSet).ObjectMeta
-		deps = obj.(*appsv1.StatefulSet).GetAnnotations()
+		anno = obj.(*appsv1.StatefulSet).GetAnnotations()
 	case *appsv1.DaemonSet:
 		meta = obj.(*appsv1.DaemonSet).ObjectMeta
-		deps = obj.(*appsv1.DaemonSet).GetAnnotations()
+		anno = obj.(*appsv1.DaemonSet).GetAnnotations()
 	default:
 		return fmt.Errorf("不支持的资源类型: %s", obj.GetObjectKind().GroupVersionKind())
 	}
@@ -94,11 +97,17 @@ func UseValidate(logger logr.Logger, obj runtime.Object, myClient client.Client,
 		objsReverseMap[v.Name] = &v.ObjectMeta
 	}
 
-	//获取版本
+	//获取版本和依赖
 	gVersion, err := registry.GetVersion(obj)
 	if err != nil {
 		logger.Info("获取版本失败", "err", err)
 		return err
+	}
+	for k, v := range anno {
+		if strings.HasSuffix(k, registry.K8sAnnotationDependence) {
+			dk := strings.TrimSuffix(k, registry.K8sAnnotationDependence)
+			deps[dk] = v
+		}
 	}
 
 	//检测依赖

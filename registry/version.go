@@ -81,7 +81,7 @@ func GetVersionAndDependence(podSpec corev1.PodTemplateSpec) (string, map[string
 }
 
 func CheckForwardDependence(objs map[string]runtime.Object, deps map[string]string, logger logr.Logger) error {
-	logger.Info("正向依赖检查: %v\n", deps)
+	logger.Info(fmt.Sprintf("正向依赖检查: %v\n", deps))
 	for svc, constraint := range deps {
 		c, err := semver.NewConstraint(constraint)
 		if err != nil {
@@ -90,13 +90,13 @@ func CheckForwardDependence(objs map[string]runtime.Object, deps map[string]stri
 
 		obj := objs[svc]
 		if obj == nil {
-			logger.Info("被依赖的服务不存在: %s\n", svc)
+			logger.Info(fmt.Sprintf("被依赖的服务不存在: %s\n", svc))
 			continue
 		}
 
 		version, err := GetVersion(obj)
 		if version == "" {
-			logger.Info("被依赖的服务版本为空: %s\n", svc)
+			logger.Info(fmt.Sprintf("被依赖的服务版本为空: %s\n", svc))
 			continue
 		}
 
