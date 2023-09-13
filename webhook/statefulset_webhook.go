@@ -18,25 +18,6 @@ type StatefulSetWebhook struct {
 	logger logr.Logger
 }
 
-func (s StatefulSetWebhook) ValidateCreate(ctx context.Context, obj runtime.Object) error {
-	s.logger.Info("收到validate webhook创建请求")
-	return UseValidate(s.logger, obj, s.client, ctx)
-}
-
-func (s StatefulSetWebhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
-	s.logger.Info("收到validate webhook更新请求")
-	return UseValidate(s.logger, newObj, s.client, ctx)
-}
-
-func (s StatefulSetWebhook) ValidateDelete(ctx context.Context, obj runtime.Object) error {
-	s.logger.Info("收到validate webhook删除请求")
-	return nil
-}
-
-func (s StatefulSetWebhook) Default(ctx context.Context, obj runtime.Object) error {
-	return UseDefault(obj, s.logger)
-}
-
 func SetupStatefulSetWebhookWithManager(mgr ctrl.Manager) error {
 	hook := &StatefulSetWebhook{
 		client: mgr.GetClient(),
@@ -48,3 +29,19 @@ func SetupStatefulSetWebhookWithManager(mgr ctrl.Manager) error {
 		WithValidator(hook).
 		Complete()
 }
+
+func (s StatefulSetWebhook) Default(ctx context.Context, obj runtime.Object) error {
+	return UseDefault(obj, s.logger)
+}
+
+func (s StatefulSetWebhook) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+	s.logger.Info("收到validate webhook创建请求")
+	return UseValidate(s.logger, obj, s.client, ctx)
+}
+
+func (s StatefulSetWebhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+	s.logger.Info("收到validate webhook更新请求")
+	return UseValidate(s.logger, newObj, s.client, ctx)
+}
+
+func (s StatefulSetWebhook) ValidateDelete(_ context.Context, _ runtime.Object) error { return nil }

@@ -18,11 +18,12 @@ package webhook
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-logr/logr"
 	"gitlab.wellcloud.cc/cloud/dictator/registry"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -53,10 +54,6 @@ func SetupDeploymentWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-const (
-	K8sAnnotationDependence = ".wkm.welljoint.com/dependence" // 依赖约束
-)
-
 func (w *DeploymentWebhook) Default(ctx context.Context, obj runtime.Object) error {
 	return UseDefault(obj, w.logger)
 }
@@ -71,17 +68,18 @@ func (w *DeploymentWebhook) ValidateUpdate(ctx context.Context, oldObj, newObj r
 	return UseValidate(w.logger, newObj, w.client, ctx)
 }
 
-func (w *DeploymentWebhook) ValidateDelete(ctx context.Context, obj runtime.Object) error {
-	w.logger.Info("收到validate webhook删除请求")
-	return nil
-}
+func (w *DeploymentWebhook) ValidateDelete(_ context.Context, _ runtime.Object) error { return nil }
+
+const (
+	K8sAnnotationDependence = ".wkm.welljoint.com/dependence" // 依赖约束
+)
 
 func UseValidate(logger logr.Logger, obj runtime.Object, myClient client.Client, ctx context.Context) error {
 	//获取所有的资源
 	var deploymetObjs appsv1.DeploymentList
 	var statefulsetObjs appsv1.StatefulSetList
 	var daemonsetObjs appsv1.DaemonSetList
-	var meta v12.ObjectMeta
+	var meta metav1.ObjectMeta
 	var spec corev1.PodTemplateSpec
 	switch obj.(type) {
 	case *appsv1.Deployment:
@@ -93,6 +91,8 @@ func UseValidate(logger logr.Logger, obj runtime.Object, myClient client.Client,
 	case *appsv1.DaemonSet:
 		meta = obj.(*appsv1.DaemonSet).ObjectMeta
 		spec = obj.(*appsv1.DaemonSet).Spec.Template
+	default:
+		return fmt.Errorf("不支持的资源类型: %s", obj.GetObjectKind().GroupVersionKind())
 	}
 
 	opts := client.ListOptions{
@@ -115,7 +115,7 @@ func UseValidate(logger logr.Logger, obj runtime.Object, myClient client.Client,
 	}
 
 	var objsMap = make(map[string]runtime.Object)
-	var objsReverseMap = make(map[string]*v12.ObjectMeta)
+	var objsReverseMap = make(map[string]*metav1.ObjectMeta)
 	//拼接资源map
 	for _, v := range deploymetObjs.Items {
 		objsMap[v.Name] = &v
@@ -124,12 +124,10 @@ func UseValidate(logger logr.Logger, obj runtime.Object, myClient client.Client,
 	for _, v := range statefulsetObjs.Items {
 		objsMap[v.Name] = &v
 		objsReverseMap[v.Name] = &v.ObjectMeta
-
 	}
 	for _, v := range daemonsetObjs.Items {
 		objsMap[v.Name] = &v
 		objsReverseMap[v.Name] = &v.ObjectMeta
-
 	}
 
 	//获取版本和依赖
@@ -153,26 +151,28 @@ func UseValidate(logger logr.Logger, obj runtime.Object, myClient client.Client,
 func UseDefault(obj runtime.Object, logger logr.Logger) error {
 	logger.Info("收到mutate webhook请求")
 	var spec corev1.PodTemplateSpec
-	var objN v12.ObjectMeta
+	var meta metav1.ObjectMeta
 	switch obj.(type) {
 	case *appsv1.Deployment:
 		spec = obj.(*appsv1.Deployment).Spec.Template
-		objN = obj.(*appsv1.Deployment).ObjectMeta
+		meta = obj.(*appsv1.Deployment).ObjectMeta
 	case *appsv1.StatefulSet:
 		spec = obj.(*appsv1.StatefulSet).Spec.Template
-		objN = obj.(*appsv1.StatefulSet).ObjectMeta
+		meta = obj.(*appsv1.StatefulSet).ObjectMeta
 	case *appsv1.DaemonSet:
 		spec = obj.(*appsv1.DaemonSet).Spec.Template
-		objN = obj.(*appsv1.DaemonSet).ObjectMeta
+		meta = obj.(*appsv1.DaemonSet).ObjectMeta
+	default:
+		return fmt.Errorf("不支持的资源类型: %s", obj.GetObjectKind().GroupVersionKind())
 	}
 	gVersion, deps, err := registry.GetVersionAndDependence(spec)
 	if err != nil {
 		return err
 	}
 	//设置Annotation
-	registry.SetObjVersion(&objN, gVersion, deps)
+	registry.SetObjVersion(&meta, gVersion, deps)
 	for k, v := range deps {
-		objN.Annotations[k+K8sAnnotationDependence] = v
+		meta.Annotations[k+K8sAnnotationDependence] = v
 	}
 	return nil
 }

@@ -18,6 +18,22 @@ type DaemonSetWebhook struct {
 	logger logr.Logger
 }
 
+func SetupDaemonSetWebhookWithManager(mgr ctrl.Manager) error {
+	hook := &DaemonSetWebhook{
+		client: mgr.GetClient(),
+		logger: logf.Log.WithName("[webhook.daemonset]"),
+	}
+	return ctrl.NewWebhookManagedBy(mgr).
+		For(&appsv1.DaemonSet{}).
+		WithDefaulter(hook).
+		WithValidator(hook).
+		Complete()
+}
+
+func (d DaemonSetWebhook) Default(ctx context.Context, obj runtime.Object) error {
+	return UseDefault(obj, d.logger)
+}
+
 func (d DaemonSetWebhook) ValidateCreate(ctx context.Context, obj runtime.Object) error {
 	d.logger.Info("收到validate webhook创建请求")
 	return UseValidate(d.logger, obj, d.client, ctx)
@@ -28,23 +44,4 @@ func (d DaemonSetWebhook) ValidateUpdate(ctx context.Context, oldObj, newObj run
 	return UseValidate(d.logger, newObj, d.client, ctx)
 }
 
-func (d DaemonSetWebhook) ValidateDelete(ctx context.Context, obj runtime.Object) error {
-	d.logger.Info("收到validate webhook删除请求")
-	return nil
-}
-
-func (d DaemonSetWebhook) Default(ctx context.Context, obj runtime.Object) error {
-	return UseDefault(obj, d.logger)
-}
-
-func SetupDaemonSetWebhookWithManager(mgr ctrl.Manager) error {
-	hook := &DaemonSetWebhook{
-		client: mgr.GetClient(),
-		logger: logf.Log.WithName("[webhook.deamonset]"),
-	}
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&appsv1.DaemonSet{}).
-		WithDefaulter(hook).
-		WithValidator(hook).
-		Complete()
-}
+func (d DaemonSetWebhook) ValidateDelete(_ context.Context, _ runtime.Object) error { return nil }
