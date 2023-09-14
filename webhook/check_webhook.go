@@ -13,8 +13,15 @@ import (
 	"strings"
 )
 
-func UseDefault(obj runtime.Object, logger logr.Logger) error {
-	logger.Info("收到mutate webhook请求")
+var myChecker checker.MyChecker
+
+type Webhook struct {
+	client client.Client
+	logger logr.Logger
+}
+
+func UseDefault(w *Webhook, obj runtime.Object, checker checker.Chercker) error {
+	w.logger.Info("收到mutate webhook请求")
 	var spec corev1.PodTemplateSpec
 	var meta metav1.ObjectMeta
 	switch obj.(type) {
@@ -39,7 +46,7 @@ func UseDefault(obj runtime.Object, logger logr.Logger) error {
 	return nil
 }
 
-func UseValidate(logger logr.Logger, obj runtime.Object, myClient client.Client, ctx context.Context) error {
+func UseValidate(w *Webhook, obj runtime.Object, ctx context.Context, ck checker.Chercker) error {
 	//获取所有的资源
 	var deploymetObjs appsv1.DeploymentList
 	var statefulsetObjs appsv1.StatefulSetList
@@ -65,19 +72,19 @@ func UseValidate(logger logr.Logger, obj runtime.Object, myClient client.Client,
 	opts := client.ListOptions{
 		Namespace: meta.Namespace,
 	}
-	err := myClient.List(ctx, &deploymetObjs, &opts)
+	err := w.client.List(ctx, &deploymetObjs, &opts)
 	if err != nil {
-		logger.Info("获取所有Deployment资源失败", "err", err)
+		w.logger.Info("获取所有Deployment资源失败", "err", err)
 		return err
 	}
-	err = myClient.List(ctx, &statefulsetObjs, &opts)
+	err = w.client.List(ctx, &statefulsetObjs, &opts)
 	if err != nil {
-		logger.Info("获取所有StatefulSet资源失败", "err", err)
+		w.logger.Info("获取所有StatefulSet资源失败", "err", err)
 		return err
 	}
-	err = myClient.List(ctx, &daemonsetObjs, &opts)
+	err = w.client.List(ctx, &daemonsetObjs, &opts)
 	if err != nil {
-		logger.Info("获取所有DaemonSet资源失败", "err", err)
+		w.logger.Info("获取所有DaemonSet资源失败", "err", err)
 		return err
 	}
 
@@ -98,9 +105,9 @@ func UseValidate(logger logr.Logger, obj runtime.Object, myClient client.Client,
 	}
 
 	//获取版本和依赖
-	gVersion, err := checker.GetVersion(obj)
+	gVersion, err := ck.GetVersion(obj)
 	if err != nil {
-		logger.Info("获取版本失败", "err", err)
+		w.logger.Info("获取版本失败", "err", err)
 		return err
 	}
 	for k, v := range anno {
@@ -111,13 +118,29 @@ func UseValidate(logger logr.Logger, obj runtime.Object, myClient client.Client,
 	}
 
 	//检测依赖
-	if err = checker.CheckForwardDependence(objsMap, deps, logger); err != nil {
-		logger.Info("检测正向依赖失败", "err", err)
+	if err = ck.CheckForwardDependence(objsMap, deps, w.logger); err != nil {
+		w.logger.Info("检测正向依赖失败", "err", err)
 		return err
 	}
-	if err = checker.CheckReverseDependence(objsReverseMap, meta.Name, gVersion, logger); err != nil {
-		logger.Info("检测反向依赖失败", "err", err)
+	if err = ck.CheckReverseDependence(objsReverseMap, meta.Name, gVersion, w.logger); err != nil {
+		w.logger.Info("检测反向依赖失败", "err", err)
 		return err
 	}
 	return nil
 }
+
+func (w *Webhook) Default(_ context.Context, obj runtime.Object) error {
+	return UseDefault(w, obj, &myChecker)
+}
+
+func (w *Webhook) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+	w.logger.Info("收到validate webhook创建请求")
+	return UseValidate(w, obj, ctx, &myChecker)
+}
+
+func (w *Webhook) ValidateUpdate(ctx context.Context, _, newObj runtime.Object) error {
+	w.logger.Info("收到validate webhook更新请求")
+	return UseValidate(w, newObj, ctx, &myChecker)
+}
+
+func (w *Webhook) ValidateDelete(_ context.Context, _ runtime.Object) error { return nil }

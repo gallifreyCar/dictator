@@ -17,12 +17,8 @@ limitations under the License.
 package webhook
 
 import (
-	"context"
-	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -33,13 +29,8 @@ import (
 //+kubebuilder:webhook:path=/mutate-apps-v1-deployment,mutating=true,failurePolicy=fail,sideEffects=None,groups=apps,resources=deployments,verbs=create;update,versions=v1,name=mdeployment.kb.io,admissionReviewVersions=v1
 //+kubebuilder:webhook:path=/validate-apps-v1-deployment,mutating=false,failurePolicy=fail,sideEffects=None,groups=apps,resources=deployments,verbs=create;update,versions=v1,name=vdeployment.kb.io,admissionReviewVersions=v1
 
-type DeploymentWebhook struct {
-	client client.Client
-	logger logr.Logger
-}
-
 func SetupDeploymentWebhookWithManager(mgr ctrl.Manager) error {
-	hook := &DeploymentWebhook{
+	hook := &Webhook{
 		client: mgr.GetClient(),
 		logger: logf.Log.WithName("[webhook.deployment]"),
 	}
@@ -49,19 +40,3 @@ func SetupDeploymentWebhookWithManager(mgr ctrl.Manager) error {
 		WithValidator(hook).
 		Complete()
 }
-
-func (w *DeploymentWebhook) Default(ctx context.Context, obj runtime.Object) error {
-	return UseDefault(obj, w.logger)
-}
-
-func (w *DeploymentWebhook) ValidateCreate(ctx context.Context, obj runtime.Object) error {
-	w.logger.Info("收到validate webhook创建请求")
-	return UseValidate(w.logger, obj, w.client, ctx)
-}
-
-func (w *DeploymentWebhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
-	w.logger.Info("收到validate webhook更新请求")
-	return UseValidate(w.logger, newObj, w.client, ctx)
-}
-
-func (w *DeploymentWebhook) ValidateDelete(_ context.Context, _ runtime.Object) error { return nil }

@@ -14,9 +14,13 @@ import (
 	"strings"
 )
 
+type MyChecker struct{}
+
+var _ Chercker = (*MyChecker)(nil)
+
 // 获取版本
 // 从init容器和普通容器中依次遍历, 找到第一个符合语义化版本的镜像tag
-func getVersionByPodTemplate(podSpec *corev1.PodTemplateSpec) string {
+func (m *MyChecker) getVersionByPodTemplate(podSpec *corev1.PodTemplateSpec) string {
 	containers := make([]corev1.Container, 0, len(podSpec.Spec.InitContainers)+len(podSpec.Spec.Containers))
 	containers = append(containers, podSpec.Spec.InitContainers...)
 	containers = append(containers, podSpec.Spec.Containers...)
@@ -37,7 +41,7 @@ func getVersionByPodTemplate(podSpec *corev1.PodTemplateSpec) string {
 
 // 获取依赖约束
 // 从init容器和普通容器中依次遍历, 获取每个镜像的依赖约束
-func getDependenceByPodTemplate(podSpec *corev1.PodTemplateSpec) (map[string]string, error) {
+func (m *MyChecker) getDependenceByPodTemplate(podSpec *corev1.PodTemplateSpec) (map[string]string, error) {
 	deps := make(map[string]string)
 
 	containers := make([]corev1.Container, 0, len(podSpec.Spec.InitContainers)+len(podSpec.Spec.Containers))
@@ -46,10 +50,10 @@ func getDependenceByPodTemplate(podSpec *corev1.PodTemplateSpec) (map[string]str
 	for _, c := range containers {
 		image := c.Image
 		// 隐藏镜像仓库地址
-		image = hideImageRegistry(image)
+		image = m.hideImageRegistry(image)
 		// 补全镜像完整地址
 		regAddr := os.Getenv("registryAddr")
-		image = completeImageRegistry(regAddr, image)
+		image = m.completeImageRegistry(regAddr, image)
 
 		i := strings.LastIndexByte(image, ':')
 
@@ -74,13 +78,13 @@ func getDependenceByPodTemplate(podSpec *corev1.PodTemplateSpec) (map[string]str
 }
 
 // GetVersionAndDependence 从远程私人仓库获取版本和依赖约束
-func GetVersionAndDependence(podSpec corev1.PodTemplateSpec) (string, map[string]string, error) {
-	version := getVersionByPodTemplate(&podSpec)
-	deps, err := getDependenceByPodTemplate(&podSpec)
+func (m *MyChecker) GetVersionAndDependence(podSpec corev1.PodTemplateSpec) (string, map[string]string, error) {
+	version := m.getVersionByPodTemplate(&podSpec)
+	deps, err := m.getDependenceByPodTemplate(&podSpec)
 	return version, deps, err
 }
 
-func CheckForwardDependence(objs map[string]runtime.Object, deps map[string]string, logger logr.Logger) error {
+func (m *MyChecker) CheckForwardDependence(objs map[string]runtime.Object, deps map[string]string, logger logr.Logger) error {
 	logger.Info("正向依赖检查", "dependency", deps)
 	for svc, constraint := range deps {
 		c, err := semver.NewConstraint(constraint)
@@ -94,7 +98,7 @@ func CheckForwardDependence(objs map[string]runtime.Object, deps map[string]stri
 			continue
 		}
 
-		version, err := GetVersion(obj)
+		version, err := m.GetVersion(obj)
 		if version == "" {
 			logger.Info("被依赖的服务版本不存在", "service", svc, "version", version)
 			continue
@@ -111,7 +115,7 @@ func CheckForwardDependence(objs map[string]runtime.Object, deps map[string]stri
 	return nil
 }
 
-func CheckReverseDependence(objs map[string]*v12.ObjectMeta, svc string, version string, logger logr.Logger) error {
+func (m *MyChecker) CheckReverseDependence(objs map[string]*v12.ObjectMeta, svc string, version string, logger logr.Logger) error {
 	logger.Info("反向依赖检查", "service", svc, "version", version)
 	if version == "" {
 		return nil
@@ -143,7 +147,7 @@ func CheckReverseDependence(objs map[string]*v12.ObjectMeta, svc string, version
 }
 
 // SetObjVersion 设置对象的版本号
-func SetObjVersion(obj *v12.ObjectMeta, version string, deps map[string]string) {
+func (m *MyChecker) SetObjVersion(obj *v12.ObjectMeta, version string, deps map[string]string) {
 	Labels := obj.GetLabels()
 	if Labels == nil {
 		Labels = map[string]string{}
@@ -161,7 +165,7 @@ func SetObjVersion(obj *v12.ObjectMeta, version string, deps map[string]string) 
 	obj.SetAnnotations(annotations)
 }
 
-func GetVersion(obj runtime.Object) (string, error) {
+func (m *MyChecker) GetVersion(obj runtime.Object) (string, error) {
 	var spec corev1.PodTemplateSpec
 	var objN v12.ObjectMeta
 	switch obj.(type) {
@@ -181,14 +185,14 @@ func GetVersion(obj runtime.Object) (string, error) {
 		return version, nil
 	}
 
-	return getVersionByPodTemplate(&spec), nil
+	return m.getVersionByPodTemplate(&spec), nil
 
 }
 
 // 隐藏镜像仓库地址
 // image: harbor:5000/wecloud/wmc:1.5.1
 // return: wecloud/wmc:1.5.1
-func hideImageRegistry(image string) string {
+func (m *MyChecker) hideImageRegistry(image string) string {
 	i := strings.IndexByte(image, '/')
 	if i == -1 {
 		return image
@@ -199,7 +203,7 @@ func hideImageRegistry(image string) string {
 // 补全镜像完整地址
 // address: harbor:5000 part: wecloud/wmc:1.5.1
 // return: harbor:5000/wecloud/wmc:1.5.1
-func completeImageRegistry(address, part string) string {
+func (m *MyChecker) completeImageRegistry(address, part string) string {
 	if part == "" {
 		return ""
 	}
