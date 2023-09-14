@@ -9,7 +9,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"strings"
 )
 
@@ -51,19 +53,19 @@ func UseValidate(w *Webhook, obj runtime.Object, ctx context.Context, ck checker
 	var deploymetObjs appsv1.DeploymentList
 	var statefulsetObjs appsv1.StatefulSetList
 	var daemonsetObjs appsv1.DaemonSetList
-	var meta metav1.ObjectMeta
+	var meta *metav1.ObjectMeta
 	var anno map[string]string
 	deps := make(map[string]string)
 
 	switch obj.(type) {
 	case *appsv1.Deployment:
-		meta = obj.(*appsv1.Deployment).ObjectMeta
+		meta = &obj.(*appsv1.Deployment).ObjectMeta
 		anno = obj.(*appsv1.Deployment).GetAnnotations()
 	case *appsv1.StatefulSet:
-		meta = obj.(*appsv1.StatefulSet).ObjectMeta
+		meta = &obj.(*appsv1.StatefulSet).ObjectMeta
 		anno = obj.(*appsv1.StatefulSet).GetAnnotations()
 	case *appsv1.DaemonSet:
-		meta = obj.(*appsv1.DaemonSet).ObjectMeta
+		meta = &obj.(*appsv1.DaemonSet).ObjectMeta
 		anno = obj.(*appsv1.DaemonSet).GetAnnotations()
 	default:
 		return fmt.Errorf("不支持的资源类型: %s", obj.GetObjectKind().GroupVersionKind())
@@ -144,3 +146,52 @@ func (w *Webhook) ValidateUpdate(ctx context.Context, _, newObj runtime.Object) 
 }
 
 func (w *Webhook) ValidateDelete(_ context.Context, _ runtime.Object) error { return nil }
+
+//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=apps,resources=deployments/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=apps,resources=deployments/finalizers,verbs=update
+
+//+kubebuilder:webhook:path=/mutate-apps-v1-deployment,mutating=true,failurePolicy=fail,sideEffects=None,groups=apps,resources=deployments,verbs=create;update,versions=v1,name=mdeployment.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/validate-apps-v1-deployment,mutating=false,failurePolicy=fail,sideEffects=None,groups=apps,resources=deployments,verbs=create;update,versions=v1,name=vdeployment.kb.io,admissionReviewVersions=v1
+
+func SetupDeploymentWebhookWithManager(mgr ctrl.Manager) error {
+	hook := &Webhook{
+		client: mgr.GetClient(),
+		logger: logf.Log.WithName("[webhook.deployment]"),
+	}
+	return ctrl.NewWebhookManagedBy(mgr).
+		For(&appsv1.Deployment{}).
+		WithDefaulter(hook).
+		WithValidator(hook).
+		Complete()
+}
+
+//+kubebuilder:webhook:path=/mutate-apps-v1-daemonset,mutating=true,failurePolicy=fail,sideEffects=None,groups=apps,resources=daemonsets,verbs=create;update,versions=v1,name=mdaemonset.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/validate-apps-v1-daemonset,mutating=false,failurePolicy=fail,sideEffects=None,groups=apps,resources=daemonsets,verbs=create;update,versions=v1,name=vdaemonset.kb.io,admissionReviewVersions=v1
+
+func SetupDaemonSetWebhookWithManager(mgr ctrl.Manager) error {
+	hook := &Webhook{
+		client: mgr.GetClient(),
+		logger: logf.Log.WithName("[webhook.daemonset]"),
+	}
+	return ctrl.NewWebhookManagedBy(mgr).
+		For(&appsv1.DaemonSet{}).
+		WithDefaulter(hook).
+		WithValidator(hook).
+		Complete()
+}
+
+//+kubebuilder:webhook:path=/mutate-apps-v1-statefulset,mutating=true,failurePolicy=fail,sideEffects=None,groups=apps,resources=statefulsets,verbs=create;update,versions=v1,name=mstatefulset.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/validate-apps-v1-statefulset,mutating=false,failurePolicy=fail,sideEffects=None,groups=apps,resources=statefulsets,verbs=create;update,versions=v1,name=vstatefulset.kb.io,admissionReviewVersions=v1
+
+func SetupStatefulSetWebhookWithManager(mgr ctrl.Manager) error {
+	hook := &Webhook{
+		client: mgr.GetClient(),
+		logger: logf.Log.WithName("[webhook.statefulset]"),
+	}
+	return ctrl.NewWebhookManagedBy(mgr).
+		For(&appsv1.StatefulSet{}).
+		WithDefaulter(hook).
+		WithValidator(hook).
+		Complete()
+}

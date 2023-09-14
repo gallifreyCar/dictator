@@ -56,11 +56,9 @@ func (m *MyChecker) getDependenceByPodTemplate(podSpec *corev1.PodTemplateSpec) 
 		image = m.completeImageRegistry(regAddr, image)
 
 		i := strings.LastIndexByte(image, ':')
-
 		if i == -1 {
 			continue
 		}
-
 		dependence, err := GetImageDependenceRaw(image)
 		if err != nil {
 			return nil, err
@@ -73,7 +71,6 @@ func (m *MyChecker) getDependenceByPodTemplate(podSpec *corev1.PodTemplateSpec) 
 			}
 		}
 	}
-
 	return deps, nil
 }
 
