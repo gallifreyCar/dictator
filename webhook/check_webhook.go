@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-logr/logr"
-	"gitlab.wellcloud.cc/cloud/dictator/registry"
+	"gitlab.wellcloud.cc/cloud/dictator/checker"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,12 +30,12 @@ func UseDefault(obj runtime.Object, logger logr.Logger) error {
 	default:
 		return fmt.Errorf("不支持的资源类型: %s", obj.GetObjectKind().GroupVersionKind())
 	}
-	gVersion, deps, err := registry.GetVersionAndDependence(spec)
+	gVersion, deps, err := checker.GetVersionAndDependence(spec)
 	if err != nil {
 		return err
 	}
 	//设置Annotation
-	registry.SetObjVersion(&meta, gVersion, deps)
+	checker.SetObjVersion(&meta, gVersion, deps)
 	return nil
 }
 
@@ -98,24 +98,24 @@ func UseValidate(logger logr.Logger, obj runtime.Object, myClient client.Client,
 	}
 
 	//获取版本和依赖
-	gVersion, err := registry.GetVersion(obj)
+	gVersion, err := checker.GetVersion(obj)
 	if err != nil {
 		logger.Info("获取版本失败", "err", err)
 		return err
 	}
 	for k, v := range anno {
-		if strings.HasSuffix(k, registry.K8sAnnotationDependence) {
-			dk := strings.TrimSuffix(k, registry.K8sAnnotationDependence)
+		if strings.HasSuffix(k, checker.K8sAnnotationDependence) {
+			dk := strings.TrimSuffix(k, checker.K8sAnnotationDependence)
 			deps[dk] = v
 		}
 	}
 
 	//检测依赖
-	if err = registry.CheckForwardDependence(objsMap, deps, logger); err != nil {
+	if err = checker.CheckForwardDependence(objsMap, deps, logger); err != nil {
 		logger.Info("检测正向依赖失败", "err", err)
 		return err
 	}
-	if err = registry.CheckReverseDependence(objsReverseMap, meta.Name, gVersion, logger); err != nil {
+	if err = checker.CheckReverseDependence(objsReverseMap, meta.Name, gVersion, logger); err != nil {
 		logger.Info("检测反向依赖失败", "err", err)
 		return err
 	}

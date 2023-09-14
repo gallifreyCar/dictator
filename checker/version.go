@@ -1,4 +1,4 @@
-package registry
+package checker
 
 import (
 	"errors"
@@ -81,7 +81,7 @@ func GetVersionAndDependence(podSpec corev1.PodTemplateSpec) (string, map[string
 }
 
 func CheckForwardDependence(objs map[string]runtime.Object, deps map[string]string, logger logr.Logger) error {
-	logger.Info(fmt.Sprintf("正向依赖检查: %v\n", deps))
+	logger.Info("正向依赖检查", "dependency", deps)
 	for svc, constraint := range deps {
 		c, err := semver.NewConstraint(constraint)
 		if err != nil {
@@ -90,13 +90,13 @@ func CheckForwardDependence(objs map[string]runtime.Object, deps map[string]stri
 
 		obj := objs[svc]
 		if obj == nil {
-			logger.Info(fmt.Sprintf("被依赖的服务不存在: %s\n", svc))
+			logger.Info("被依赖的服务不存在", "service", svc)
 			continue
 		}
 
 		version, err := GetVersion(obj)
 		if version == "" {
-			logger.Info(fmt.Sprintf("被依赖的服务版本为空: %s\n", svc))
+			logger.Info("被依赖的服务版本不存在", "service", svc, "version", version)
 			continue
 		}
 
@@ -112,7 +112,7 @@ func CheckForwardDependence(objs map[string]runtime.Object, deps map[string]stri
 }
 
 func CheckReverseDependence(objs map[string]*v12.ObjectMeta, svc string, version string, logger logr.Logger) error {
-	logger.Info("反向依赖检查: %s %s\n", svc, version)
+	logger.Info("反向依赖检查", "service", svc, "version", version)
 	if version == "" {
 		return nil
 	}

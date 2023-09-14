@@ -1,4 +1,4 @@
-package registry
+package checker
 
 import "k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -24,60 +24,13 @@ const (
 	KRTCronJob                                    // CronJob
 )
 
+const (
+	K8sLabelVersion         = "wkm.welljoint.com/version"     // 服务版本
+	K8sAnnotationDependence = ".wkm.welljoint.com/dependence" // 依赖约束
+)
+
 //go:generate stringer -type=K8sResourceType -linecomment
 type K8sResourceType int
-
-func ParseResourceType(kind string) K8sResourceType {
-	switch kind {
-	case "Deployment":
-		return KRTDeployment
-	case "StatefulSet":
-		return KRTStatefulSet
-	case "DaemonSet":
-		return KRTDaemonSet
-	case "Kafka":
-		return KRTMonitorCrdKafka
-	case "Mysql":
-		return KRTMonitorCrdMysql
-	case "Redis":
-		return KRTMonitorCrdRedis
-	case "Zookeeper":
-		return KRTMonitorCrdZookeeper
-	case "Cms":
-		return KRTWellcloudCms
-	case "ClusterRole":
-		return KRTClusterRole
-	case "ClusterRoleBinding":
-		return KRTClusterRoleBinding
-	case "ServiceAccount":
-		return KRTServiceAccount
-	case "Service":
-		return KRTService
-	case "ConfigMap":
-		return KRTConfigMap
-	case "Pod":
-		return KRTPod
-	case "ReplicaSet":
-		return KrtReplicaSet
-	case "RabbitMQ":
-		return KRTMonitorCrdRabbitMQ
-	case "Job":
-		return KRTJob
-	case "CronJob":
-		return KRTCronJob
-	default:
-		return KRTUnknown
-	}
-}
-
-func ParseResourceTypeFromObject(obj map[string]interface{}) K8sResourceType {
-	gotKind := obj["kind"]
-	kind, ok := gotKind.(string)
-	if !ok {
-		return KRTUnknown
-	}
-	return ParseResourceType(kind)
-}
 
 func (k K8sResourceType) IsCrd() bool {
 	return (k >= KRTMonitorCrdKafka && k <= KRTWellcloudCms) || k == KRTMonitorCrdRabbitMQ
@@ -110,9 +63,3 @@ var gvrMap = map[K8sResourceType]schema.GroupVersionResource{
 }
 
 func (k K8sResourceType) GVR() schema.GroupVersionResource { return gvrMap[k] }
-
-const (
-	K8sLabelName            = "wkm.welljoint.com/name"        // 服务名称
-	K8sLabelVersion         = "wkm.welljoint.com/version"     // 服务版本
-	K8sAnnotationDependence = ".wkm.welljoint.com/dependence" // 依赖约束
-)

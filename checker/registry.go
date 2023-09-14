@@ -1,4 +1,4 @@
-package registry
+package checker
 
 import (
 	"github.com/google/go-containerregistry/pkg/authn"

@@ -1,4 +1,4 @@
-package registry
+package checker
 
 import (
 	corev1 "k8s.io/api/core/v1"
@@ -6,11 +6,6 @@ import (
 )
 
 type ImageType int
-
-const (
-	ImageTypeInit   ImageType = 1 + iota // 初始化容器镜像
-	ImageTypeNormal                      // 普通容器镜像
-)
 
 type Container struct {
 	Name string    `json:"name" binding:"required"`
@@ -21,11 +16,6 @@ type Container struct {
 	Env []Env `json:"env"`
 }
 
-//	func (m Container) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-//		enc.AddString("name", m.Name)
-//		enc.AddString("image", m.Image)
-//		return nil
-//	}
 func (m Container) GetImage() string {
 	base := m.Image
 	var tag string
